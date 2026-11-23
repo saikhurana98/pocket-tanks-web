@@ -681,57 +681,13 @@ var ASM_CONSTS = {
    SDL2.h = h;
    SDL2.imageCtx = SDL2.ctx;
   }
-  var data = SDL2.image.data;
-  var src = pixels >> 2;
-  var dst = 0;
-  var num;
-  if (typeof CanvasPixelArray !== "undefined" && data instanceof CanvasPixelArray) {
-   num = data.length;
-   while (dst < num) {
-    var val = HEAP32[src];
-    data[dst] = val & 255;
-    data[dst + 1] = val >> 8 & 255;
-    data[dst + 2] = val >> 16 & 255;
-    data[dst + 3] = 255;
-    src++;
-    dst += 4;
-   }
-  } else {
-   if (SDL2.data32Data !== data) {
-    SDL2.data32 = new Int32Array(data.buffer);
-    SDL2.data8 = new Uint8Array(data.buffer);
-   }
-   var data32 = SDL2.data32;
-   num = data32.length;
-   data32.set(HEAP32.subarray(src, src + num));
-   var data8 = SDL2.data8;
-   var i = 3;
-   var j = i + 4 * num;
-   if (num % 8 == 0) {
-    while (i < j) {
-     data8[i] = 255;
-     i = i + 4 | 0;
-     data8[i] = 255;
-     i = i + 4 | 0;
-     data8[i] = 255;
-     i = i + 4 | 0;
-     data8[i] = 255;
-     i = i + 4 | 0;
-     data8[i] = 255;
-     i = i + 4 | 0;
-     data8[i] = 255;
-     i = i + 4 | 0;
-     data8[i] = 255;
-     i = i + 4 | 0;
-     data8[i] = 255;
-     i = i + 4 | 0;
-    }
-   } else {
-    while (i < j) {
-     data8[i] = 255;
-     i = i + 4 | 0;
-    }
-   }
+  // Reuse the destination view and make pixels opaque in the same copy.
+  if (!SDL2.data32 || SDL2.data32.buffer !== SDL2.image.data.buffer) {
+   SDL2.data32 = new Uint32Array(SDL2.image.data.buffer);
+  }
+  const src = pixels >>> 2;
+  for (let i = 0; i < SDL2.data32.length; i++) {
+   SDL2.data32[i] = HEAP32[src + i] | 0xff000000;
   }
   SDL2.ctx.putImageData(SDL2.image, 0, 0);
   return 0;
@@ -6289,7 +6245,9 @@ var JSEvents = {
   return target && target.nodeName ? target.nodeName : "";
  },
  fullscreenEnabled: function() {
-  return document.fullscreenEnabled || document.webkitFullscreenEnabled;
+  // The page owns fullscreen. SDL must not queue a second fullscreen request
+  // for the canvas on the next mouse press or resize the guest framebuffer.
+  return false;
  }
 };
 

@@ -593,45 +593,12 @@
     		}
     		return contents;
         }
-        function buildAppFileSystems(adapterCallback)
-        {
-            var Buffer = BrowserFS.BFSRequire('buffer').Buffer;
-            if(Config.appPayload.length > 0){
-            	let contents = getBase64Data(Config.appPayload);
-                BrowserFS.FileSystem.ZipFS.Create({"zipData":new Buffer(contents)}, function(e4, additionalZipfs){
-                    if(e4){
-                        logAndExit(e4);
-                    }
-                    let homeAdapter = new BrowserFS.FileSystem.FolderAdapter("/", additionalZipfs);
-                    adapterCallback(homeAdapter);
-                });
-            }else if(Config.appZipFile.length > 0){
-                    var listingObject = {};
-                    listingObject[Config.appZipFile] =  null;
-                    var mfs = new BrowserFS.FileSystem.MountableFileSystem();
-                    BrowserFS.FileSystem.XmlHttpRequest.Create({"index":listingObject, "baseUrl": Config.locateAppBaseUrl}, function(e2, xmlHttpFs){
-                        if(e2){
-                            logAndExit(e2);
-                        }
-                        mfs.mount('/temp', xmlHttpFs);
-                        mfs.readFile('/temp/' + Config.appZipFile, null, flag_r, function callback(e, contents){
-                            if(e){
-                                logAndExit(e);
-                            }
-                            BrowserFS.FileSystem.ZipFS.Create({"zipData":new Buffer(contents)}, function(e3, additionalZipfs){
-                                if(e3){
-                                    logAndExit(e3);
-                                }
-                                let homeAdapter = new BrowserFS.FileSystem.FolderAdapter("/", additionalZipfs);
-                                adapterCallback(homeAdapter);
-                                mfs = null;
-                            });
-                        });
-                    });
-            }else{
-                let homeAdapter = new BrowserFS.FileSystem.FolderAdapter("/", new BrowserFS.FileSystem.InMemory());
-                adapterCallback(homeAdapter);
-            }
+        function buildAppFileSystems(adapterCallback) {
+            loadGameFiles().then(adapterCallback).catch(error => {
+                document.querySelector("#transfer").textContent = "";
+                document.querySelector("#transfer-progress").hidden = true;
+                showFailure("Game startup failed. " + error.message);
+            });
         }
         function buildExtraFileSystems(Buffer, fsCallback)
         {
@@ -1166,6 +1133,14 @@
             //text = text.replace(/>/g, "&gt;");
             //text = text.replace('\n', '<br>', 'g');
             console.log(text);
+            if (text.startsWith('Launching ')) {
+              const rendering = setInterval(() => {
+                if (Module.ctx || !document.getElementById('recovery').hidden) {
+                  document.getElementById('transfer').textContent = '';
+                  clearInterval(rendering);
+                }
+              }, 250);
+            }
             if (element) {
               element.value += text + "\n";
               element.scrollTop = element.scrollHeight; // focus on bottom
@@ -1189,23 +1164,22 @@
 			}
           }
         },
+        onAbort: function() { showFailure("The emulator could not start. Reload to try again."); },
         canvas: (function() {
           var canvas = document.getElementById('canvas');
 
-          // As a default initial behavior, pop up an alert when webgl context is lost. To make your
-          // application robust, you may want to override this behavior before shipping!
-          // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
-          canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+
           canvas.width  = 800;
           canvas.height = 600;
           return canvas;
         })(),
         setStatus: function(text) {
           if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
-          if (text === Module.setStatus.text) return;
+          if (text === Module.setStatus.last.text) return;
           var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
           var now = Date.now();
-          if (m && now - Date.now() < 30) return; // if this is a progress update, skip it if too soon
+          if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+          Module.setStatus.last = {time:now, text:text};
           if (m) {
             text = m[1];
             progressElement.value = parseInt(m[2])*100;
@@ -1218,7 +1192,7 @@
             progressElement.hidden = true;
             if (!text) spinnerElement.hidden = true;
           }
-          statusElement.innerHTML = text;
+          statusElement.textContent = text;
         },
         totalDependencies: 0,
         monitorRunDependencies: function(left) {
@@ -1228,7 +1202,8 @@
       };
       Module.setStatus('Downloading...');
       window.onerror = function() {
-        Module.setStatus('Exception thrown, see JavaScript console');
+        if (typeof showFailure === 'function') showFailure('The emulator stopped. Reload to try again.');
+        Module.setStatus('');
         spinnerElement.style.display = 'none';
         Module.setStatus = function(text) {
           if (text) Module.printErr('[post-exception status] ' + text);

@@ -92,3 +92,15 @@ input[type=button] { padding: 4px 12px; }
 .emscripten_border { border: 0 !important; }
 canvas.emscripten { max-width: 100%; height: auto; background: black; }
 hr { display: none; }
+#inline > .emscripten { display:flex; gap:.75rem; align-items:center; justify-content:center; flex-wrap:wrap; }
+#inline > .emscripten [style*="display: none"] { display:none; }
+#inline a { color:#a9d9fc; }
+#feedback { text-align:center; }
+#feedback:has(#transfer:empty):has(#display-notice:empty) { display:none; }
+#inline:is(:fullscreen,.expanded) { background:#12171c; display:flex; flex-direction:column; width:100%; height:100%; }
+#inline.expanded { position:fixed; inset:0; z-index:1000; }
+#inline:is(:fullscreen,.expanded) #dropzone { flex:1; min-height:0; display:grid; place-items:center; container-type:size; }
+#inline:is(:fullscreen,.expanded) .emscripten_border { width:min(100cqw, 133.3333cqh); }
+#inline:is(:fullscreen,.expanded) canvas { width:100% !important; height:auto !important; }
+#output { box-sizing:border-box; max-height:20vh; }
+canvas { touch-action:none; }
