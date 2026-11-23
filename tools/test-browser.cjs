@@ -1,17 +1,17 @@
 // Set PLAYWRIGHT_MODULE to a playwright-core installation. Pass a site URL
-// and one of edge, nogpu, webgl or webkit. EDGE_PATH overrides the executable.
+// and one of edge, nogpu, webgl, touch, firefox or webkit. EDGE_PATH overrides the executable.
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const {chromium, webkit, firefox} = require(process.env.PLAYWRIGHT_MODULE || "playwright-core");
 const [url, mode="edge"] = process.argv.slice(2);
 if (!url) throw Error("Supply the test site URL");
-const flags = mode==="nogpu" ? ["--disable-gpu","--disable-webgl"] : [];
+const flags = ["nogpu","touch"].includes(mode) ? ["--disable-gpu","--disable-webgl"] : [];
 const sleep = ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run() {
   const browser = mode==="webkit" ? await webkit.launch() : mode==="firefox" ? await firefox.launch() :
     await chromium.launch({executablePath:process.env.EDGE_PATH || path.join(process.env["ProgramFiles(x86)"],"Microsoft/Edge/Application/msedge.exe"),args:flags});
   try {
-    const page = await browser.newPage({viewport:{width:1200,height:820}});
+    const page = await browser.newPage(mode==="touch" ? {viewport:{width:390,height:750},isMobile:true,hasTouch:true} : {viewport:{width:1200,height:820}});
     const errors=[];
     page.on("pageerror", e=>errors.push(e.message));
     await page.addInitScript(mode=>{
@@ -57,7 +57,16 @@ async function run() {
     }
     async function click(x,y) {
       const rect=await page.locator("#canvas").boundingBox();
-      await page.mouse.move(rect.x+rect.width*x/800,rect.y+rect.height*y/600,{steps:4});
+      const tx=rect.x+rect.width*x/800, ty=rect.y+rect.height*y/600;
+      if (mode==="touch") {
+        const cdp=await page.context().newCDPSession(page);
+        await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:tx,y:ty}]});
+        await sleep(240);
+        await cdp.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
+        await cdp.detach();
+        return;
+      }
+      await page.mouse.move(tx,ty,{steps:4});
       await sleep(180); await page.mouse.down(); await sleep(220); await page.mouse.up();
     }
     await until("Deluxe start screen",s=>s.at(552,503)[1]>80 && s.at(552,503)[2]>80);
@@ -88,11 +97,22 @@ async function run() {
     await page.setViewportSize({width:1200,height:820});
     await page.locator("#showConsole").check(); assert(await page.locator("#output").isVisible());
     await page.locator("#showConsole").uncheck(); assert(!await page.locator("#output").isVisible());
+    if (mode==="touch") {
+      await page.evaluate(()=>{
+        window.peak=0;
+        const node=Module.SDL2.audio.scriptProcessorNode, original=node.onaudioprocess;
+        node.onaudioprocess=function(e){
+          original.call(this,e);
+          for(const v of e.outputBuffer.getChannelData(0)) window.peak=Math.max(window.peak,Math.abs(v));
+        };
+      });
+    }
     const start=await sample();
     const before=await page.evaluate(()=>[performance.now(),window.paintCount]);
     await click(405,493);
     await until("Shot changes the terrain",s=>Math.abs(s.green-start.green)>=2);
     await sleep(1500);
+    if (mode==="touch") assert(await page.evaluate(()=>window.peak>0),"audible game samples");
     const after=await page.evaluate(()=>[performance.now(),window.paintCount]);
     console.log("Paint calls during shot per second",((after[1]-before[1])*1000/(after[0]-before[0])).toFixed(1));
     await page.locator("#fullscreen").click(); await checkAspect();

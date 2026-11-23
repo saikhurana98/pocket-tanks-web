@@ -56,7 +56,7 @@ function hasAcceleratedWebGL() {
   return true;
 }
 const softwareMode = new URL(location.href).searchParams.get("display")==="software" || !hasAcceleratedWebGL();
-Config.urlParams = "work=d:/&p=pockettanks.exe";
+Config.urlParams = "work=d:/&p=pockettanks.exe&resolution=800x600";
 const hints = softwareMode ? ["SDL_FRAMEBUFFER_ACCELERATION:0","SDL_RENDER_DRIVER:software"] : [];
 if (!window.AudioContext && !window.webkitAudioContext) {
   hints.push("SDL_AUDIODRIVER:dummy");

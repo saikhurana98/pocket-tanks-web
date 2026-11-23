@@ -741,16 +741,16 @@ var ASM_CONSTS = {
   }
  },
  161553: function() {
-  return screen.width;
+  return 800; // The emulated SDL desktop has a fixed resolution.
  },
  161578: function() {
-  return screen.height;
+  return 600;
  },
  161604: function() {
-  return window.innerWidth;
+  return 800;
  },
  161634: function() {
-  return window.innerHeight;
+  return 600;
  },
  161665: function($0) {
   if (typeof setWindowTitle !== "undefined") {
