@@ -531,39 +531,15 @@
             spinnerElement.style.display = '';
             spinnerElement.hidden = false;
             var Buffer = BrowserFS.BFSRequire('buffer').Buffer;
-            buildCDROMFileSystem(Buffer, function(cdromfs) {
-	            buildExtraFileSystems(Buffer, function(extraFSs) {
-    	            buildAppFileSystems(function(homeAdapter) {
-        	            if(Config.useRangeRequests == ONDEMAND_ROOT) {
-            	            buildRemoteZipFile(Config.rootZipFile, function callback(zipfs) {
-                	            buildBrowserFileSystem(writableStorage, isDropBox, homeAdapter, extraFSs, zipfs, cdromfs);
-                    	    });
-	                    } else {
-    	                    var rootListingObject = {};
-        	                rootListingObject[Config.rootZipFile] =  null;
-            	            BrowserFS.FileSystem.XmlHttpRequest.Create({"index":rootListingObject, "baseUrl": Config.locateRootBaseUrl}, function(e2, xmlHttpFs){
-                	            if(e2){
-                    	            logAndExit(e2);
-                        	    }
-                            	var rootMfs = new BrowserFS.FileSystem.MountableFileSystem();
-	                            rootMfs.mount('/temp', xmlHttpFs);
-    	                        rootMfs.readFile('/temp/' + Config.rootZipFile, null, flag_r, function callback(e, contents){
-        	                        if(e){
-            	                        logAndExit(e);
-                	                }
-                    	            BrowserFS.FileSystem.ZipFS.Create({"zipData":new Buffer(contents)}, function(e3, zipfs){
-                        	            if(e3){
-                            	            logAndExit(e3);
-                                	    }
-                                    	buildBrowserFileSystem(writableStorage, isDropBox, homeAdapter, extraFSs, zipfs, cdromfs);
-	                                });
-    	                            rootMfs = null;
-        	                    });
-            	            });
-                	    }
-                	});
-	            });
-            });
+            // This distribution ships a fixed Wine image and one game filesystem.
+            Promise.all([loadGameFiles(), wineRoot()]).then(([game, root]) => {
+                buildBrowserFileSystem(writableStorage, isDropBox, game, [], root, null);
+            }).catch(gameStartupFailed);
+        }
+        function gameStartupFailed(error) {
+            document.querySelector("#transfer").textContent = "";
+            document.querySelector("#transfer-progress").hidden = true;
+            showFailure("Game startup failed. " + error.message);
         }
         function buildRemoteZipFile(zipFilename, zipFileCallback)
         {
@@ -592,13 +568,6 @@
         		contents[i] = bytes.charCodeAt(i);
     		}
     		return contents;
-        }
-        function buildAppFileSystems(adapterCallback) {
-            loadGameFiles().then(adapterCallback).catch(error => {
-                document.querySelector("#transfer").textContent = "";
-                document.querySelector("#transfer-progress").hidden = true;
-                showFailure("Game startup failed. " + error.message);
-            });
         }
         function buildExtraFileSystems(Buffer, fsCallback)
         {

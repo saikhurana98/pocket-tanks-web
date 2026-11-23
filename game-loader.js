@@ -89,13 +89,13 @@ function restorePcm(bytes,start,size,channels) {
 // while the current response is being consumed, and let fetch cache each piece.
 function gameStream(parts) {
   const abort = new AbortController();
-  let index = 0, next, reader;
+  let index = 0, next, reader, completed;
   function fetchNext() {
     if (index === parts.length) return null;
     const url = "assets/" + parts[index++];
     // Observe failures immediately even while another response is draining.
-    return fetch(url,{cache:"force-cache",signal:abort.signal})
-      .then(response => ({response}),error => ({error}));
+    return cachedAsset(url, url.match(/game-([a-f0-9]+)\.bin$/)[1], abort.signal)
+      .catch(error => ({error}));
   }
   return new ReadableStream({
     async pull(controller) {
@@ -107,10 +107,13 @@ function gameStream(parts) {
             if (result.error) throw result.error;
             if (!result.response.ok || !result.response.body) throw Error("Could not download the game data.");
             reader = result.response.body.getReader();
+            completed = result.completed;
             next = fetchNext();
           }
           const {done,value} = await reader.read();
           if (!done) { controller.enqueue(value); return; }
+          const failure = await completed;
+          if (failure) throw failure;
           reader.releaseLock();
           reader = null;
         }
@@ -120,5 +123,41 @@ function gameStream(parts) {
       }
     },
     cancel() { abort.abort(); }
+  });
+}
+
+const assetCache = (async () => {
+  try { return await caches.open("pocket-tanks-assets-" + new URL(".",location.href).pathname); }
+  catch { return null; }
+})();
+
+// Stream to the decoder immediately. Verify a second branch before committing
+// it to persistent storage, so interrupted responses can be retried safely.
+async function cachedAsset(url, digest, signal) {
+  const cache = await assetCache;
+  const hit = cache && await cache.match(url).catch(() => null);
+  if (hit) return {response:hit, completed:null};
+  const response = await fetch(url,{signal});
+  if (!response.ok || !response.body) throw Error("Could not download " + url);
+  const copy = response.clone();
+  const completed = (async () => {
+    const bytes = await copy.arrayBuffer();
+    const hash = new Uint8Array(await crypto.subtle.digest("SHA-256",bytes));
+    const actual = Array.from(hash,b=>b.toString(16).padStart(2,"0")).join("");
+    if (!actual.startsWith(digest)) throw Error("Downloaded data failed verification. Please retry.");
+    if (cache) await cache.put(url,new Response(bytes)).catch(()=>{});
+  })().then(()=>null,error=>error);
+  return {response,completed};
+}
+
+async function wineRoot() {
+  const digest = "695e905bc38f6fd37e92fbb223e0822fe06c327b12bbdaaf0d718c5a4baf9506";
+  const {response,completed} = await cachedAsset("boxedwine.zip?v="+digest.slice(0,16),digest);
+  const bytes = await response.arrayBuffer();
+  const failure = await completed;
+  if (failure) throw failure;
+  const Buffer = BrowserFS.BFSRequire("buffer").Buffer;
+  return new Promise((resolve,reject)=>{
+    BrowserFS.FileSystem.ZipFS.Create({zipData:Buffer.from(bytes)},(error,fs)=>error ? reject(error) : resolve(fs));
   });
 }

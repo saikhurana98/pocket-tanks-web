@@ -63,10 +63,21 @@ async function main(){
   }
   await visit(source);assert.equal(Object.keys(result.hashes).length,checked);
   console.log("PASS all",checked,"restored files match; gated download showed",result.partial);
+  await p.evaluate(async()=>{
+    const fetchOriginal=window.fetch;
+    window.fetch=(input,...rest)=>{
+      if(String(input).endsWith(".bin")) throw Error("Cached game requested from network");
+      return fetchOriginal(input,...rest);
+    };
+    try{await loadGameFiles();}finally{window.fetch=fetchOriginal;}
+  });
+  console.log("PASS warm startup reads every game part from Cache Storage");
   for(const failure of ["missing manifest","missing bundle","truncated gzip"]){
     const pattern=failure==="missing manifest"?"**/assets/game.json":"**/assets/*.bin";
+    await p.evaluate(async()=>{for(const key of await caches.keys()) await caches.delete(key);});
+    await p.reload();
     await p.route(pattern,route=>failure==="truncated gzip"?route.fulfill({body:Buffer.from([31,139,8,0])}):route.fulfill({status:404,body:""}));
-    await p.evaluate(()=>buildAppFileSystems(()=>{throw Error("Unexpected success")}));
+    await p.evaluate(()=>loadGameFiles().catch(gameStartupFailed));
     await p.waitForFunction(()=>!document.querySelector("#recovery").hidden);
     assert.equal(await p.locator("#recovery").textContent(),"Retry");
     await p.unroute(pattern);
@@ -79,6 +90,11 @@ async function main(){
   await p.keyboard.press("Escape");
   assert.equal(await p.locator("#inline.expanded").count(),0);
   console.log("PASS fallback fullscreen and Escape");
+  // An installation that denies persistent storage must still be playable.
+  await p.addInitScript(()=>Object.defineProperty(window,"caches",{get(){throw new Error("Storage denied");}}));
+  await p.reload();
+  await p.evaluate(()=>loadGameFiles().then(()=>true));
+  console.log("PASS unpacking when persistent storage is denied");
  }finally{await b.close();}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
