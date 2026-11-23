@@ -92,8 +92,3 @@ input[type=button] { padding: 4px 12px; }
 .emscripten_border { border: 0 !important; }
 canvas.emscripten { max-width: 100%; height: auto; background: black; }
 hr { display: none; }
-.selecting #loading, .selecting #inline { display: none; }
-#picker { max-width: 32rem; margin: 15vh auto; padding: 2rem; background: #202932; border-radius: 12px; }
-#picker h1 { margin: 0; font-size: 2rem; }
-#picker p { line-height: 1.5; }
-#picker label, #picker input { display: block; margin: 1rem 0; }

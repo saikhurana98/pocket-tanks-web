@@ -596,7 +596,7 @@
         function buildAppFileSystems(adapterCallback)
         {
             var Buffer = BrowserFS.BFSRequire('buffer').Buffer;
-            if (Config.localGame) { adapterCallback(Config.localGame); return; } else if(Config.appPayload.length > 0){
+            if(Config.appPayload.length > 0){
             	let contents = getBase64Data(Config.appPayload);
                 BrowserFS.FileSystem.ZipFS.Create({"zipData":new Buffer(contents)}, function(e4, additionalZipfs){
                     if(e4){
@@ -1623,4 +1623,3 @@ function getFile(file, isDirectory)
 		return new Blob([data], {type: "octet/stream"});
 	}
 }
-

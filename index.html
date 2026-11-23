@@ -8,13 +8,7 @@
     <meta name="author" content="James Bryant, Kevin O'Dwyer">
       <link rel="stylesheet" type="text/css" href="boxedwine.css">
   </head>
-  <body class='selecting'><main id="picker">
-  <h1>Pocket Tanks Deluxe</h1>
-  <p>Choose your game ZIP to play in this browser. The archive stays on your device.</p>
-  <label for="archive">Game archive (.zip)</label>
-  <input id="archive" type="file" accept=".zip,application/zip">
-  <p id="message" role="status"></p>
-</main>
+  <body>
   <!-- if running inline add style="display: none" to id="loading" and id="inline" and remove same from id="run-inline" -->
   <div id="loading">
       <figure id="spinner" style="overflow: visible;">
@@ -85,4 +79,7 @@
         <script src="browserfs.boxedwine.js"></script>
         <script src="jszip.min.js"></script>
         <script src="boxedwine-shell.js"></script>
-<script src="launch.js"></script></body></html>
+        <script>Config.urlParams = "app=game&p=pockettanks.exe";</script>
+        <script async src="boxedwine.js"></script>
+  </body>
+</html>
