@@ -1,6 +1,7 @@
 // Set PLAYWRIGHT_MODULE to a playwright-core installation. Pass a site URL
-// and one of edge, nogpu, webgl, touch, firefox or webkit. EDGE_PATH overrides the executable.
+// and one of edge, nogpu, webgl, touch, audio, firefox or webkit. EDGE_PATH overrides the executable.
 const assert = require("node:assert/strict");
+const {attachMeter} = require('./audio-meter.cjs');
 const path = require("node:path");
 const {chromium, webkit, firefox} = require(process.env.PLAYWRIGHT_MODULE || "playwright-core");
 const [url, mode="edge"] = process.argv.slice(2);
@@ -14,6 +15,7 @@ async function run() {
     const page = await browser.newPage(mode==="touch" ? {viewport:{width:390,height:750},isMobile:true,hasTouch:true} : {viewport:{width:1200,height:820}});
     const errors=[];
     page.on("pageerror", e=>errors.push(e.message));
+    page.on("console", m => { if (/^(Game audio load failed|Music playback failed|Using Wine audio)/.test(m.text())) errors.push(m.text()); });
     await page.addInitScript(mode=>{
       window.paintCount=0;
       for (const [proto,method] of [[window.CanvasRenderingContext2D?.prototype,"putImageData"],[window.WebGLRenderingContext?.prototype,"drawArrays"],[window.WebGLRenderingContext?.prototype,"drawElements"]]) {
@@ -85,11 +87,40 @@ async function run() {
     await sleep(1800);
     if ((await sample()).at(552,503)[2]>80) await click(635,525);
     await until("Start Game click in scaled fullscreen",s=>s.at(520,577)[0]>65 && s.at(520,577)[1]>65 && s.at(520,577)[2]>65);
+    if (mode === "audio") {
+      await attachMeter(page, false);
+      await sleep(1500);
+      for (const stressed of [false, true]) {
+        await page.evaluate(() => window.readAudioMeter());
+        if (stressed) await page.evaluate(() => {
+          window.audioLoad = setInterval(() => {
+            const end = performance.now() + 70;
+            while (performance.now() < end) {}
+          }, 420);
+        });
+        await sleep(10000);
+        const m = await page.evaluate(() => { clearInterval(window.audioLoad); return window.readAudioMeter(); });
+        console.log(stressed ? "Title with 70 ms main-thread stalls" : "Title", m);
+        assert(m.frames >= 9*m.rate && m.active > .98*m.frames && m.silentFrames < .06*m.rate,
+          "title music must remain continuous");
+      }
+      await page.evaluate(() => window.closeAudioMeter());
+    }
     await click(590,580);
     await until("Game mode menu",s=>s.at(20,420)[2]>70);
     await sleep(1800);
     await click(400,262);
     await until("Target Practice terrain",s=>s.green>220);
+    if (mode === "audio") {
+      await attachMeter(page, false);
+      await sleep(1200);
+      await page.evaluate(() => window.readAudioMeter());
+      await sleep(7000);
+      const m = await page.evaluate(() => window.readAudioMeter());
+      console.log("Target Practice soundtrack", m);
+      assert(m.frames >= 6*m.rate && m.active > .98*m.frames, "in-game music must remain continuous");
+      await page.evaluate(() => window.closeAudioMeter());
+    }
     await page.locator("#fullscreen").click();
     await page.waitForFunction(()=>!document.fullscreenElement && !document.querySelector(".expanded"));
     await checkAspect();
@@ -97,22 +128,22 @@ async function run() {
     await page.setViewportSize({width:1200,height:820});
     await page.locator("#showConsole").check(); assert(await page.locator("#output").isVisible());
     await page.locator("#showConsole").uncheck(); assert(!await page.locator("#output").isVisible());
-    if (mode==="touch") {
-      await page.evaluate(()=>{
-        window.peak=0;
-        const node=Module.SDL2.audio.scriptProcessorNode, original=node.onaudioprocess;
-        node.onaudioprocess=function(e){
-          original.call(this,e);
-          for(const v of e.outputBuffer.getChannelData(0)) window.peak=Math.max(window.peak,Math.abs(v));
-        };
-      });
+    const checkEffects = mode === "touch" || mode === "audio";
+    if (checkEffects) {
+      await attachMeter(page, true);
+      await page.evaluate(() => window.readAudioMeter());
     }
     const start=await sample();
     const before=await page.evaluate(()=>[performance.now(),window.paintCount]);
     await click(405,493);
     await until("Shot changes the terrain",s=>Math.abs(s.green-start.green)>=2);
     await sleep(1500);
-    if (mode==="touch") assert(await page.evaluate(()=>window.peak>0),"audible game samples");
+    if (checkEffects) {
+      const measured = await page.evaluate(() => window.readAudioMeter());
+      console.log("Shot sound effects", measured);
+      assert(measured.active > .05 * measured.rate, "weapon effects must be audible independently of music");
+      await page.evaluate(() => window.closeAudioMeter());
+    }
     const after=await page.evaluate(()=>[performance.now(),window.paintCount]);
     console.log("Paint calls during shot per second",((after[1]-before[1])*1000/(after[0]-before[0])).toFixed(1));
     await page.locator("#fullscreen").click(); await checkAspect();
@@ -133,8 +164,7 @@ async function run() {
       await page.waitForFunction(()=>Module.SDL2?.image?.width===800,null,{timeout:180000});
       console.log("PASS real context loss and restart using Canvas 2D");
     }
-    const output=await page.locator("#output").inputValue();
-    console.log("Audio initialization",output.includes("openAudio:"));
+    console.log("Browser audio", await page.evaluate(() => gameAudio.context?.state || "unavailable"));
     assert.deepEqual(errors,[]);
     console.log("PASS fullscreen round trips, 4:3 viewport, 390px layout, log toggle, no uncaught page errors");
   } finally {await browser.close();}

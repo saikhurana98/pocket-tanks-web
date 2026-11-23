@@ -679,7 +679,7 @@
                 });
             });
         }
-        function postBuildFileSystem(rootFS, homeFS, extraFSs, cdromFS)
+        async function postBuildFileSystem(rootFS, homeFS, extraFSs, cdromFS)
         {
             var mfs = new BrowserFS.FileSystem.MountableFileSystem();
             mfs.mount('/root/base', rootFS);
@@ -691,6 +691,7 @@
 
             BrowserFS.initialize(mfs);
             FS.mount(BFS, {root: '/root'}, '/root');
+            try { await gameAudio.install(); } catch (error) { console.warn('Using Wine audio', error); }
             
             for(let i = 0; i < extraFSs.length; i++) {
                 recursiveCopy(extraFSs[i], Config.extraZipFiles[i], '/');
