@@ -14,6 +14,9 @@ async function main(){
   await p.goto(url);
   const result=await p.evaluate(async()=>{
     const nativeFetch=window.fetch;
+    const {files}=await (await nativeFetch("assets/game.json")).json();
+    const progress=document.querySelector("#transfer-progress");
+    const total=files.reduce((sum,file)=>sum+file.size,0);
     let release,paused=false;
     const gate=new Promise(r=>release=r);
     window.fetch=async(...args)=>{
@@ -29,13 +32,23 @@ async function main(){
     const loading=loadGameFiles();
     try{
       const deadline=performance.now()+60000;
-      while(!paused || !/[1-9]\d* files ready/.test(document.querySelector("#transfer").textContent)){
+      while(!paused || !/[1-9]\d* files? ready/.test(document.querySelector("#transfer").textContent)){
         if(performance.now()>deadline) throw Error("No extraction before network completion");
         await new Promise(r=>setTimeout(r,30));
       }
       const partial=document.querySelector("#transfer").textContent;
+      const count=Number(partial.match(/(\d+) files? ready/)[1]);
+      let paths=0, written=0;
+      for(const file of files){
+        paths+=file.paths.length;written+=file.size;
+        if(paths>=count)break;
+      }
+      if(!progress.getBoundingClientRect().width || progress.max!==total ||
+          progress.value!==written || written<=0 || written>=total)
+        throw Error("The visible bar must track files written to the emulator");
       release();
       const adapter=await loading;
+      if(progress.value!==total)throw Error("Unpacking did not reach 100%");
       await new Promise((resolve,reject)=>adapter.initialize(e=>e?reject(e):resolve()));
       const LocalFS=BrowserFS.BFSRequire("fs").FS;
       const local=new LocalFS();local.initialize(adapter);
@@ -69,7 +82,18 @@ async function main(){
       if(String(input).endsWith(".bin")) throw Error("Cached game requested from network");
       return fetchOriginal(input,...rest);
     };
-    try{await loadGameFiles();}finally{window.fetch=fetchOriginal;}
+    const bar=document.querySelector("#transfer-progress"), painted=[];
+    let frame;
+    function sample(){
+      if(!bar.hidden && bar.value>0 && bar.value<bar.max)painted.push(bar.value);
+      frame=requestAnimationFrame(sample);
+    }
+    frame=requestAnimationFrame(sample);
+    try{
+      await loadGameFiles();
+      if(new Set(painted).size<2 || painted.some((v,i)=>i>0 && v<painted[i-1]))
+        throw Error("The cached unpacking bar must advance across visible frames");
+    }finally{cancelAnimationFrame(frame);window.fetch=fetchOriginal;}
   });
   console.log("PASS warm startup reads every game part from Cache Storage");
   for(const failure of ["missing manifest","missing bundle","truncated gzip"]){

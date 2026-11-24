@@ -1,18 +1,22 @@
 // Decode complete files as the HTTP body arrives. Only the current file and the
 // current decompressor chunk need staging space outside the guest filesystem.
 async function loadGameFiles() {
+  document.getElementById("transfer").textContent = "Opening the game files…";
   const manifestResponse = await fetch("assets/game.json");
   if (!manifestResponse.ok) throw Error("Could not download the game index.");
   const { parts, compressedSize, files } = await manifestResponse.json();
   const status = document.querySelector("#transfer");
   const progress = document.querySelector("#transfer-progress");
-  progress.max = compressedSize;
+  const unpackedSize = files.reduce((sum, file) => sum + file.size, 0);
+  progress.max = unpackedSize;
+  progress.setAttribute("aria-label", "Unpacking game files");
+  progress.value = 0;
   progress.hidden = false;
+  status.textContent = "Unpacking game files · 0%";
   let received = 0;
   const meter = new TransformStream({
     transform(chunk, controller) {
       received += chunk.length;
-      progress.value = received;
       controller.enqueue(chunk);
     }
   });
@@ -24,7 +28,7 @@ async function loadGameFiles() {
   const fs = new FileSystem();
   fs.initialize(disk);
   let pending = new Uint8Array(0);
-  let count = 0, lastUpdate = -Infinity;
+  let unpacked = 0, count = 0, lastUpdate = -Infinity;
   try {
     for (const file of files) {
       const bytes = Buffer.alloc(file.size);
@@ -51,8 +55,13 @@ async function loadGameFiles() {
         fs.writeFileSync("/"+path,bytes);
         count++;
       }
-      if (performance.now()-lastUpdate>100) {
-        status.textContent = "Downloading and unpacking · " + Math.round(received/compressedSize*100) + "% · " + count + " files ready";
+      unpacked += file.size;
+      if (performance.now() - lastUpdate >= 64 && unpacked < unpackedSize) {
+        progress.value = unpacked;
+        const download = received < compressedSize ? " · Download " + Math.floor(received * 100 / compressedSize) + "%" : "";
+        status.textContent = "Unpacking game files · " + Math.floor(unpacked * 100 / unpackedSize) + "% · " + count + (count === 1 ? " file ready" : " files ready") + download;
+        // Cached reads can finish in microtasks. Let the browser paint between batches.
+        await new Promise(resolve => setTimeout(resolve, 0));
         lastUpdate = performance.now();
       }
     }
@@ -62,8 +71,9 @@ async function loadGameFiles() {
     await reader.cancel().catch(()=>{});
     throw error;
   } finally { reader.releaseLock(); }
+  progress.value = unpackedSize;
   status.textContent = "Starting Pocket Tanks Deluxe…";
-  progress.hidden = true;
+  if (!document.getElementById("loading")) progress.hidden = true;
   return new BrowserFS.FileSystem.FolderAdapter("/",disk);
 }
 
