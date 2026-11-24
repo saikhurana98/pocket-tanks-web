@@ -8,11 +8,20 @@ software.searchParams.set("display","software");
 const recovery = document.getElementById("recovery");
 
 function showFailure(text, graphics = false) {
+  document.getElementById("loading").hidden = true;
   notice.textContent = text;
   recovery.href = graphics ? software.href : location.href;
   recovery.textContent = graphics ? "Restart in software mode" : "Retry";
   recovery.hidden = false;
 }
+
+const stretch = document.getElementById("stretch");
+try { stretch.checked = localStorage.getItem("pt-stretch") === "1"; } catch {}
+stage.classList.toggle("stretched",stretch.checked);
+stretch.addEventListener("change", () => {
+  stage.classList.toggle("stretched",stretch.checked);
+  try { localStorage.setItem("pt-stretch",stretch.checked ? "1" : "0"); } catch {}
+});
 
 function fullscreenChanged() {
   const active = !!document.fullscreenElement || stage.classList.contains("expanded");

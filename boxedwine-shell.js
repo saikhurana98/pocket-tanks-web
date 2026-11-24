@@ -44,9 +44,6 @@
 		document.body.appendChild(ae);
 		ae.style = "display: none";
 		var url = null;
-      	var statusElement = document.getElementById('status');
-      	var progressElement = document.getElementById('progress');
-      	var spinnerElement = document.getElementById('spinner');
         var dropzone = document.getElementById("dropzone");
 
 
@@ -528,8 +525,6 @@
         }
         function buildFileSystem(writableStorage, isDropBox)
         {
-            spinnerElement.style.display = '';
-            spinnerElement.hidden = false;
             var Buffer = BrowserFS.BFSRequire('buffer').Buffer;
             // This distribution ships a fixed Wine image and one game filesystem.
             Promise.all([loadGameFiles(), wineRoot()]).then(([game, root]) => {
@@ -703,7 +698,6 @@
                 document.getElementById('uploadbtn').style.display = "";
                 document.getElementById('downloadbtn').style.display = "";
             }
-            spinnerElement.style.display = 'none';
             if(Config.storageMode === STORAGE_DROPBOX){
                 startEmulator();
             }else{
@@ -1103,14 +1097,6 @@
             //text = text.replace(/>/g, "&gt;");
             //text = text.replace('\n', '<br>', 'g');
             console.log(text);
-            if (text.startsWith('Launching ')) {
-              const rendering = setInterval(() => {
-                if (Module.ctx || !document.getElementById('recovery').hidden) {
-                  document.getElementById('transfer').textContent = '';
-                  clearInterval(rendering);
-                }
-              }, 250);
-            }
             if (element) {
               element.value += text + "\n";
               element.scrollTop = element.scrollHeight; // focus on bottom
@@ -1143,38 +1129,11 @@
           canvas.height = 600;
           return canvas;
         })(),
-        setStatus: function(text) {
-          if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
-          if (text === Module.setStatus.last.text) return;
-          var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
-          var now = Date.now();
-          if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
-          Module.setStatus.last = {time:now, text:text};
-          if (m) {
-            text = m[1];
-            progressElement.value = parseInt(m[2])*100;
-            progressElement.max = parseInt(m[4])*100;
-            progressElement.hidden = false;
-            spinnerElement.hidden = false;
-          } else {
-            progressElement.value = null;
-            progressElement.max = null;
-            progressElement.hidden = true;
-            if (!text) spinnerElement.hidden = true;
-          }
-          statusElement.textContent = text;
-        },
-        totalDependencies: 0,
-        monitorRunDependencies: function(left) {
-          this.totalDependencies = Math.max(this.totalDependencies, left);
-          Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : '');
-        }
+        setStatus: function() {}
       };
-      Module.setStatus('Downloading...');
       window.onerror = function() {
         if (typeof showFailure === 'function') showFailure('The emulator stopped. Reload to try again.');
         Module.setStatus('');
-        spinnerElement.style.display = 'none';
         Module.setStatus = function(text) {
           if (text) Module.printErr('[post-exception status] ' + text);
         };

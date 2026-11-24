@@ -541,7 +541,7 @@ function isFileURI(filename) {
  return filename.startsWith("file://");
 }
 
-var wasmBinaryFile = "boxedwine.wasm";
+var wasmBinaryFile = "boxedwine-pointer.wasm";
 
 if (!isDataURI(wasmBinaryFile)) {
  wasmBinaryFile = locateFile(wasmBinaryFile);
@@ -690,6 +690,7 @@ var ASM_CONSTS = {
    SDL2.data32[i] = HEAP32[src + i] | 0xff000000;
   }
   SDL2.ctx.putImageData(SDL2.image, 0, 0);
+  window.presentPocketTanks?.(SDL2.image.data,w,h);
   return 0;
  },
  160402: function($0, $1, $2, $3, $4) {
@@ -6489,6 +6490,11 @@ function _emscripten_get_device_pixel_ratio() {
 function _emscripten_get_element_css_size(target, width, height) {
  target = findEventTarget(target);
  if (!target) return -4;
+ if (Module.guestPointer && target === Module.canvas) {
+  HEAPF64[width >> 3] = target.width;
+  HEAPF64[height >> 3] = target.height;
+  return 0;
+ }
  var rect = getBoundingClientRect(target);
  HEAPF64[width >> 3] = rect.width;
  HEAPF64[height >> 3] = rect.height;
@@ -7686,6 +7692,7 @@ function _emscripten_glTexSubImage2D(target, level, xoffset, yoffset, width, hei
  var pixelData = null;
  if (pixels) pixelData = emscriptenWebGLGetTexPixelData(type, format, width, height, pixels, 0);
  GLctx.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixelData);
+ if (!xoffset && !yoffset && format===6408 && type===5121) window.presentPocketTanks?.(pixelData,width,height);
 }
 
 function _emscripten_glUniform1f(location, v0) {
@@ -8237,8 +8244,8 @@ function fillMouseEventData(eventStruct, e, target) {
  HEAP32[idx + 9] = e["movementX"];
  HEAP32[idx + 10] = e["movementY"];
  var rect = getBoundingClientRect(target);
- HEAP32[idx + 11] = e.clientX - rect.left;
- HEAP32[idx + 12] = e.clientY - rect.top;
+ HEAP32[idx + 11] = Module.guestPointer ? Module.guestPointer.x : e.clientX - rect.left;
+ HEAP32[idx + 12] = Module.guestPointer ? Module.guestPointer.y : e.clientY - rect.top;
 }
 
 function registerMouseEventCallback(target, userData, useCapture, callbackfunc, eventTypeId, eventTypeString, targetThread) {
@@ -9106,6 +9113,7 @@ function intArrayFromString(stringy, dontAddNull, length) {
 }
 
 var asmLibraryArg = {
+ guestWarp: (x, y) => Module.onGuestMouseWarp?.(x, y),
  "r": ___cxa_allocate_exception,
  "q": ___cxa_throw,
  "Td": ___sys__newselect,

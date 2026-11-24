@@ -10,16 +10,6 @@
 
   </head>
   <body>
-  <!-- if running inline add style="display: none" to id="loading" and id="inline" and remove same from id="run-inline" -->
-  <div id="loading">
-      <figure id="spinner" style="overflow: visible;">
-         <div class="spinner" style="margin-top: .5em; margin-left: auto; margin-right: auto;"></div>
-	  </figure>
-      <div class="emscripten" id="status">Downloading...</div>
-      <div class="emscripten">
-          <progress value="0" max="100" id="progress"></progress>
-      </div>
-  </div>
     <div id="run-inline" style="display: none">
         <button id="inline-runbtn" onclick="startInline()">inline</button>
     </div>
@@ -39,13 +29,19 @@
           </span>
           <label><input type="checkbox" id="pointerLock">Capture mouse</label>
           <label><input type="checkbox" id="showConsole" onclick="toggleConsole();">Show log</label>
+          <label><input type="checkbox" id="stretch">Stretch display</label>
           <button id="fullscreen" type="button" aria-pressed="false">Fullscreen</button>
           <a id="display-mode"></a>
         </div>
-        <div id="feedback"><span id="transfer" role="status">Preparing download…</span> <progress id="transfer-progress" hidden></progress><span id="display-notice" role="alert"></span> <a id="recovery" hidden></a></div>
+        <div id="feedback"><span id="display-notice" role="alert"></span> <a id="recovery" hidden></a></div>
         <div id="dropzone">
             <div class="emscripten_border">
-                <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+                <section id="loading" aria-label="Loading Pocket Tanks Deluxe">
+                    <img src="assets/logo.webp" width="260" height="127" alt="Pocket Tanks">
+                    <div id="transfer" role="status">Loading game engine…</div>
+                    <progress id="transfer-progress" aria-label="Loading progress"></progress>
+                </section>
+                <canvas width="800" height="600" class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
             </div>
         </div>
         <div>
@@ -83,6 +79,7 @@
         <script src="audio/browser.js"></script>
         <script src="game-loader.js"></script>
         <script src="display.js"></script>
-        <script async src="boxedwine.js"></script>
+        <script src="game-input.js"></script>
+        <script async src="boxedwine.js?v=relative-pointer-1"></script>
   </body>
 </html>

@@ -35,6 +35,7 @@ async function run() {
     await page.goto(url);
     await page.waitForFunction(()=>window.paintCount>0 || !document.getElementById("recovery").hidden,null,{timeout:180000});
     assert(await page.locator("#recovery").isHidden());
+    await page.locator("#loading").waitFor({state:"hidden",timeout:180000});
     // Sample screenshots outside the game context to also check WebGL frames
     // whose drawing buffers have already been cleared after presentation.
     const png = require(path.join(path.dirname(require.resolve(process.env.PLAYWRIGHT_MODULE || "playwright-core")),"lib/utilsBundle.js")).PNG;
@@ -128,6 +129,13 @@ async function run() {
     await page.setViewportSize({width:1200,height:820});
     await page.locator("#showConsole").check(); assert(await page.locator("#output").isVisible());
     await page.locator("#showConsole").uncheck(); assert(!await page.locator("#output").isVisible());
+    await page.locator("#stretch").check();
+    if (touchMode()) await page.setViewportSize({width:430,height:840});
+    const stretched=await page.locator("#canvas").boundingBox();
+    assert(Math.abs(stretched.width/stretched.height-4/3)>.1,"Stretched viewport");
+    await require("./test-controls.cjs")(page,click,touchMode());
+    await page.locator("#stretch").uncheck();await checkAspect();
+    function touchMode(){return mode==="touch"}
     const checkEffects = mode === "touch" || mode === "audio";
     if (checkEffects) {
       await attachMeter(page, true);

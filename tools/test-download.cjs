@@ -10,7 +10,7 @@ async function main(){
  try{
   const p=await b.newPage();
   // Test just the loader, before the game can change its own files.
-  await p.route("**/boxedwine.js",route=>route.fulfill({contentType:"text/javascript",body:""}));
+  await p.route("**/boxedwine.js*",route=>route.fulfill({contentType:"text/javascript",body:""}));
   await p.goto(url);
   const result=await p.evaluate(async()=>{
     const nativeFetch=window.fetch;

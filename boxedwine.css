@@ -4,37 +4,6 @@ div.emscripten { text-align: center; }
 div.emscripten_border { border: 1px solid black; }
 /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
 canvas.emscripten { border: 0px none; }
-.spinner {
-    height: 50px;
-    width: 50px;
-    margin: 0px auto;
-    -webkit-animation: rotation .8s linear infinite;
-    -moz-animation: rotation .8s linear infinite;
-    -o-animation: rotation .8s linear infinite;
-    animation: rotation 0.8s linear infinite;
-    border-left: 10px solid rgb(0,150,240);
-    border-right: 10px solid rgb(0,150,240);
-    border-bottom: 10px solid rgb(0,150,240);
-    border-top: 10px solid rgb(100,0,200);
-    border-radius: 100%;
-    background-color: rgb(200,100,250);
-}
-@-webkit-keyframes rotation {
-    from {-webkit-transform: rotate(0deg);}
-    to {-webkit-transform: rotate(360deg);}
-}
-@-moz-keyframes rotation {
-    from {-moz-transform: rotate(0deg);}
-    to {-moz-transform: rotate(360deg);}
-}
-@-o-keyframes rotation {
-    from {-o-transform: rotate(0deg);}
-    to {-o-transform: rotate(360deg);}
-}
-@keyframes rotation {
-    from {transform: rotate(0deg);}
-    to {transform: rotate(360deg);}
-}
 .modalDialog {
     position: fixed;
     font-family: Arial, Helvetica, sans-serif;
@@ -96,7 +65,7 @@ hr { display: none; }
 #inline > .emscripten [style*="display: none"] { display:none; }
 #inline a { color:#a9d9fc; }
 #feedback { text-align:center; }
-#feedback:has(#transfer:empty):has(#display-notice:empty) { display:none; }
+#feedback:has(#display-notice:empty):has(#recovery[hidden]) { display:none; }
 #inline:is(:fullscreen,.expanded) { background:#12171c; display:flex; flex-direction:column; width:100%; height:100%; }
 #inline.expanded { position:fixed; inset:0; z-index:1000; }
 #inline:is(:fullscreen,.expanded) #dropzone { flex:1; min-height:0; display:grid; place-items:center; container-type:size; }
@@ -104,3 +73,15 @@ hr { display: none; }
 #inline:is(:fullscreen,.expanded) canvas { width:100% !important; height:auto !important; }
 #output { box-sizing:border-box; max-height:20vh; }
 canvas { touch-action:none; }
+
+.emscripten_border { position:relative; margin:auto; width:min(100%,800px); }
+#canvas { display:block; }
+#loading { position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1rem; background:radial-gradient(ellipse at 50% 42%, #271d35 0%,#111018 48%,#08080b 100%); color:#eee; text-align:center; }
+#loading[hidden] { display:none; }
+#loading img { width:min(45%,260px); height:auto; }
+#transfer { font-size:clamp(.83rem,2vw,1rem); font-variant-numeric:tabular-nums; }
+#transfer-progress { width:min(60%,260px); height:.55rem; accent-color:#eead2c; }
+#inline.stretched { display:flex; flex-direction:column; height:100dvh; }
+#inline.stretched #dropzone { display:grid; flex:1; min-height:0; }
+#inline.stretched #dropzone .emscripten_border { width:100%; height:100%; min-height:0; }
+#inline.stretched #canvas { width:100% !important; height:100% !important; }
