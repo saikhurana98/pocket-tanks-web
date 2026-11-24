@@ -169,7 +169,7 @@ async function run() {
       await page.locator("#recovery").waitFor();
       assert((await page.locator("#recovery").getAttribute("href")).includes("display=software"));
       await page.locator("#recovery").click();
-      await page.waitForFunction(()=>Module.SDL2?.image?.width===800,null,{timeout:180000});
+      await page.waitForFunction(()=>window.Module?.SDL2?.image?.width===800,null,{timeout:180000});
       console.log("PASS real context loss and restart using Canvas 2D");
     }
     console.log("Browser audio", await page.evaluate(() => gameAudio.context?.state || "unavailable"));
